@@ -1,61 +1,42 @@
 import pyaudio
+import wave
 import numpy as np
-from matplotlib import pyplot as plt
-import pandas as pd
-import seaborn as sns
+import matplotlib.pyplot as plt
+# python read and play wav file cite from: https://www.cnblogs.com/douzujun/p/10699160.html
+# ChatGPT. (2023, Mai 03). How can I display real-time frequency while playing audio? [Response to user question]. Retrieved from https://github.com/openai/gpt-3
 
-from glob import glob
-
-import librosa
-import librosa.display
-import librosa.display as ipd
-
-# Set up audio stream
-# reduce chunk size and sampling rate for lower latency
-CHUNK_SIZE = 1024 * 2  # Number of audio frames per buffer
-FORMAT = pyaudio.paInt16  # Audio format
-CHANNELS = 1  # Mono audio
-RATE = 44100  # Audio sampling rate (Hz)
+CHUNK = 1024*2
+# read file data
+SOUND = wave.open('hajimi.wav', 'rb')
+data = SOUND.readframes(CHUNK)
+# create audio player
 p = pyaudio.PyAudio()
 
-# print info about audio devices
-# let user select audio device
-info = p.get_host_api_info_by_index(0)
-numdevices = info.get('deviceCount')
+# get parameters from file
+FORMAT = p.get_format_from_width(SOUND.getsampwidth())
+CHANNELS = SOUND.getnchannels()
+RATE = SOUND.getframerate()
 
-for i in range(0, numdevices):
-    if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
-        print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
+print('FORMAT: {} \nCHANNELS: {} \nRATE: {}'.format(FORMAT, CHANNELS, RATE))
 
-print('select audio device:')
-input_device = int(input())
-
-# open audio input stream
+# open stream
 stream = p.open(format=FORMAT,
                 channels=CHANNELS,
                 rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK_SIZE,
-                input_device_index=input_device)
-
-# set up interactive plot
-fig = plt.figure()
-ax = plt.gca()
-line, = ax.plot(np.zeros(CHUNK_SIZE))
-ax.set_ylim(-30000, 30000)
-
-plt.ion()
-plt.show()
-
-# continuously capture and plot audio singal
-while True:
-    # Read audio data from stream
-    data = stream.read(CHUNK_SIZE)
-
+                frames_per_buffer=CHUNK,
+                output=True)
+# play stream
+while len(data) > 0:
+    stream.write(data)
+    data = SOUND.readframes(CHUNK)
+    
     # Convert audio data to numpy array
-    data = np.frombuffer(data, dtype=np.int16)
-    line.set_ydata(data)
-
-    # Redraw plot
-    fig.canvas.draw()
-    fig.canvas.flush_events()
+    data_array = np.frombuffer(data, dtype=np.int16)
+    # calculate spectrum
+    spectrum = np.fft.fft(data_array)
+    freqs = np.fft.fftfreq(data_array.size, 1/RATE)
+    # draw plot
+    plt.plot(freqs[:len(freqs)//2], np.abs(spectrum)[:len(spectrum)//2])
+    plt.show(block=False)
+    plt.pause(0.01)
+    plt.clf()
