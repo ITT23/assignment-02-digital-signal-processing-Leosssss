@@ -1,15 +1,16 @@
-import pyaudio
 import numpy as np
-from matplotlib import pyplot as plt
+import pyaudio 
+import struct 
+import matplotlib.pyplot as plt 
 
-# Set up audio stream
-# reduce chunk size and sampling rate for lower latency
+# cite from: https://fazals.ddns.net/spectrum-analyser-part-2/ & audio-sample.py
 CHUNK_SIZE = 1024  # Number of audio frames per buffer
 FORMAT = pyaudio.paInt16  # Audio format
 CHANNELS = 1  # Mono audio
 RATE = 44100  # Audio sampling rate (Hz)
 p = pyaudio.PyAudio()
 
+'''
 # print info about audio devices
 # let user select audio device
 info = p.get_host_api_info_by_index(0)
@@ -20,37 +21,51 @@ for i in range(0, numdevices):
         print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
 
 print('select audio device:')
-input_device = int(input())
+'''
+input_device = int(1)
 
-# open audio input stream
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK_SIZE,
-                input_device_index=input_device)
+stream = p.open(
+    format = FORMAT,
+    channels = CHANNELS,
+    rate = RATE,
+    input=True,
+    output=True,
+    frames_per_buffer=CHUNK_SIZE
+)
 
 # set up interactive plot
-fig = plt.figure()
-#line, = ax.plot(np.zeros(CHUNK_SIZE))
-
-
-plt.ion()
-plt.show()
+fig, (ax,ax1,ax2) = plt.subplots(3)
+fig.set_size_inches(8,10)
+x_fft = np.linspace(0, RATE, CHUNK_SIZE)
+x = np.arange(0,2*CHUNK_SIZE,2)
+line, = ax.plot(x, np.random.rand(CHUNK_SIZE),'r')
+line_fft, = ax1.semilogx(x_fft, np.random.rand(CHUNK_SIZE), 'b')
+line_freq, = ax2.plot(x, np.random.rand(CHUNK_SIZE), '-')
+ax.set_ylim(-30000,30000)
+ax.ser_xlim = (0,CHUNK_SIZE)
+ax.set_title('Audio Input')
+ax1.set_xlim(20,RATE/2)
+ax1.set_ylim(0,1)
+ax1.set_title('Frequency')
+ax2.set_xlim(0,CHUNK_SIZE)
+ax2.set_ylim(0,255)
+ax2.set_title('Spectrum')
+fig.show()
 
 # continuously capture and plot audio singal
 while True:
     # Read audio data from stream
     data = stream.read(CHUNK_SIZE)
+    dataInt = struct.unpack(str(CHUNK_SIZE) + 'h', data)
+    y_freq = np.frombuffer(data, dtype=np.int16)
+    spectrum = np.abs(np.fft.fft(y_freq))
 
-    # Convert audio data to numpy array
-    data = np.frombuffer(data, dtype=np.int16)
-    #line.set_ydata(data)
-    spectrum = np.fft.fft(data)
-    freqs = np.fft.fftfreq(data.size, 1/RATE)
-    plt.plot(freqs[:len(freqs)//2], np.abs(spectrum)[:len(spectrum)//2], color='green')
-    
-    plt.show(block=False)
-    plt.pause(0.01)
-    plt.clf()
-    
+    line.set_ydata(dataInt)
+    # frequency: https://fazals.ddns.net/spectrum-analyser-part-2/
+    line_fft.set_ydata(np.abs(np.fft.fft(dataInt))*2/(11000*CHUNK_SIZE)) 
+    # spectrum
+    line_freq.set_ydata(spectrum)
+
+    # Redraw plot
+    fig.canvas.draw()
+    fig.canvas.flush_events()
