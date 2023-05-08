@@ -34,22 +34,18 @@ stream = p.open(
 )
 
 # set up interactive plot
-fig, (ax,ax1,ax2) = plt.subplots(3)
+fig, (ax,ax1) = plt.subplots(2)
 fig.set_size_inches(8,10)
 x_fft = np.linspace(0, RATE, CHUNK_SIZE)
 x = np.arange(0,2*CHUNK_SIZE,2)
 line, = ax.plot(x, np.random.rand(CHUNK_SIZE),'r')
 line_fft, = ax1.semilogx(x_fft, np.random.rand(CHUNK_SIZE), 'b')
-line_spec, = ax2.plot(x, np.random.rand(CHUNK_SIZE), '-')
 ax.set_ylim(-30000,30000)
 ax.ser_xlim = (0,CHUNK_SIZE)
 ax.set_title('Audio Input')
 ax1.set_xlim(20,RATE/2)
 ax1.set_ylim(0,1)
 ax1.set_title('Frequency')
-ax2.set_xlim(0,CHUNK_SIZE)
-ax2.set_ylim(0,255)
-ax2.set_title('Spectrum')
 fig.show()
 
 # continuously capture and plot audio singal
@@ -57,14 +53,11 @@ while True:
     # Read audio data from stream
     data = stream.read(CHUNK_SIZE)
     dataInt = struct.unpack(str(CHUNK_SIZE) + 'h', data)
-    y_freq = np.frombuffer(data, dtype=np.int16)
-    spectrum = np.abs(np.fft.fft(y_freq))
 
     line.set_ydata(dataInt)
     # frequency: https://fazals.ddns.net/spectrum-analyser-part-2/
     line_fft.set_ydata(np.abs(np.fft.fft(dataInt))*2/(11000*CHUNK_SIZE)) 
-    # spectrum
-    line_spec.set_ydata(spectrum)
+    print(np.abs(np.fft.fft(dataInt))*2/(11000*CHUNK_SIZE))
 
     # Redraw plot
     fig.canvas.draw()
